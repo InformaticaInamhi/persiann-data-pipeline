@@ -1,0 +1,15 @@
+config.ini
+.env
+main/logs/
+*.log
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+.venv/
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+!data/masks/.gitkeep

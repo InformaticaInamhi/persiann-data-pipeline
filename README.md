@@ -39,7 +39,10 @@ persiann-data-pipeline/
 
 ## Archivo de máscara espacial
 
-El archivo `mask_Ecuador.npy` es un insumo necesario para ejecutar el proceso.  
+## Generación y uso de `mask_Ecuador.npy`
+
+El archivo `mask_Ecuador.npy` es un insumo necesario para ejecutar el proceso. Esta máscara espacial permite limitar el procesamiento de la grilla global PERSIANN-CCS únicamente al territorio de Ecuador.
+
 Debe colocarse en:
 
 ```text
@@ -53,12 +56,98 @@ La ruta está configurada en `config.ini`:
 mask_file = data/masks/mask_Ecuador.npy
 ```
 
-El código resuelve esta ruta de forma relativa desde la raíz del proyecto.  
-Por lo tanto, no es necesario usar rutas absolutas como:
+El código resuelve esta ruta de forma relativa desde la raíz del proyecto. Por lo tanto, no es necesario usar rutas absolutas como:
 
 ```text
 /home/jupyter-cr_mosquera/Procesos_Cron/mask_Ecuador.npy
 ```
+
+### Límite geográfico utilizado
+
+La máscara fue generada a partir del archivo vectorial:
+
+```text
+Ecuador_sin_divisiones.gpkg
+```
+
+Este archivo contiene el límite geográfico de Ecuador sin divisiones administrativas internas.
+
+El sistema de referencia utilizado es:
+
+```text
+CRS: WGS 84
+EPSG: 4326
+```
+
+En caso de que el archivo vectorial original se encuentre en otro sistema de coordenadas, debe reproyectarse previamente a `EPSG:4326`, debido a que la grilla PERSIANN-CCS se procesa en coordenadas geográficas de latitud y longitud.
+
+### Grilla PERSIANN de referencia
+
+La máscara se genera sobre la misma grilla espacial utilizada por los archivos binarios de PERSIANN-CCS.
+
+Características esperadas:
+
+```text
+Producto: PERSIANN-CCS
+Resolución espacial: 0.04°
+Dimensiones esperadas del arreglo: 3000 x 9000
+Formato de grilla: global
+Sistema de coordenadas: geográfico, EPSG:4326
+```
+
+El archivo `mask_Ecuador.npy` debe tener las mismas dimensiones que el arreglo de precipitación PERSIANN procesado antes de aplicar la máscara.
+
+### Método de generación
+
+Para generar la máscara, se evalúa cada celda de la grilla PERSIANN-CCS y se determina si el centro de la celda se encuentra dentro del polígono correspondiente al límite geográfico de Ecuador.
+
+Las celdas ubicadas dentro del límite nacional se marcan como válidas, mientras que las celdas fuera del límite se excluyen del procesamiento.
+
+El resultado se almacena como un arreglo NumPy:
+
+```text
+mask_Ecuador.npy
+```
+
+Este archivo permite reutilizar la máscara en cada ejecución del pipeline sin recalcular la intersección espacial, reduciendo el tiempo de procesamiento.
+
+### Uso dentro del pipeline
+
+Durante la ejecución del pipeline, el archivo `mask_Ecuador.npy` se carga desde la ruta configurada y se aplica sobre el arreglo de precipitación PERSIANN-CCS ya transformado.
+
+De forma conceptual, el proceso realiza lo siguiente:
+
+```python
+mask = np.load("data/masks/mask_Ecuador.npy")
+precip_ecuador = np.where(mask, precip_array, np.nan)
+```
+
+De esta manera, únicamente se conservan los valores de precipitación correspondientes a las celdas ubicadas dentro del territorio de Ecuador.
+
+### Validación de la máscara
+
+Antes de utilizar la máscara en operación, se deben realizar las siguientes validaciones:
+
+1. Verificar que las dimensiones de la máscara coincidan con las dimensiones del arreglo PERSIANN procesado:
+
+```python
+mask.shape == precip_array.shape
+```
+
+2. Confirmar que el archivo vectorial utilizado para generar la máscara se encuentre en `EPSG:4326`.
+
+3. Verificar visualmente la superposición de la máscara sobre el límite geográfico de Ecuador.
+
+4. Revisar el número de celdas activas dentro de la máscara. Para la grilla PERSIANN-CCS de 0.04° utilizada en este pipeline, se espera aproximadamente:
+
+```text
+12963 celdas activas
+```
+
+5. Validar que puntos o estaciones conocidas dentro de Ecuador coincidan con celdas activas de la máscara.
+
+Si el número de celdas activas cambia significativamente, se debe revisar el CRS del archivo vectorial, el orden de latitudes y longitudes, la transformación aplicada al arreglo PERSIANN y la resolución espacial utilizada.
+
 
 ## Archivos principales
 
